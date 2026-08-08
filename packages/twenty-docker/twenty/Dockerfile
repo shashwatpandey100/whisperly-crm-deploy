@@ -39,6 +39,11 @@ RUN yarn workspaces focus twenty twenty-server twenty-emails twenty-shared twent
 
 FROM server-deps AS twenty-server-build
 
+# Nx's own dependency-graph computation has a hardcoded 10-minute timeout,
+# which constrained hosts (e.g. a 1 OCPU/1GB test VM) can legitimately exceed
+# without anything being wrong - this just lets it take as long as it needs.
+ENV NX_PLUGIN_NO_TIMEOUTS=true
+
 COPY ./packages/twenty-emails /app/packages/twenty-emails
 COPY ./packages/twenty-shared /app/packages/twenty-shared
 COPY ./packages/twenty-client-sdk /app/packages/twenty-client-sdk
@@ -60,6 +65,9 @@ RUN yarn workspaces focus --production twenty-emails twenty-shared twenty-client
 
 
 FROM front-deps AS twenty-front-build
+
+# See the same ENV in twenty-server-build above for why this is needed.
+ENV NX_PLUGIN_NO_TIMEOUTS=true
 
 COPY ./packages/twenty-front /app/packages/twenty-front
 COPY ./packages/twenty-front-component-renderer /app/packages/twenty-front-component-renderer
