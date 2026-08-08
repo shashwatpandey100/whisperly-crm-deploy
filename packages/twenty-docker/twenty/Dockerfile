@@ -49,6 +49,10 @@ ENV NX_PLUGIN_NO_TIMEOUTS=true
 # in-process instead of delegating to a background daemon that can itself
 # become a timeout source on slow hardware.
 ENV NX_DAEMON=false
+# lingui's extract step spawns worker threads (via the `threads` npm package)
+# with a hardcoded 10s init timeout - too short for a CPU-starved build host.
+# Confirmed configurable via this exact env var in threads/dist/master/spawn.js.
+ENV THREADS_WORKER_INIT_TIMEOUT=120000
 
 COPY ./packages/twenty-emails /app/packages/twenty-emails
 COPY ./packages/twenty-shared /app/packages/twenty-shared
@@ -80,6 +84,10 @@ ENV NX_PLUGIN_NO_TIMEOUTS=true
 # in-process instead of delegating to a background daemon that can itself
 # become a timeout source on slow hardware.
 ENV NX_DAEMON=false
+# lingui's extract step spawns worker threads (via the `threads` npm package)
+# with a hardcoded 10s init timeout - too short for a CPU-starved build host.
+# Confirmed configurable via this exact env var in threads/dist/master/spawn.js.
+ENV THREADS_WORKER_INIT_TIMEOUT=120000
 
 COPY ./packages/twenty-front /app/packages/twenty-front
 COPY ./packages/twenty-front-component-renderer /app/packages/twenty-front-component-renderer
