@@ -53,6 +53,11 @@ ENV NX_DAEMON=false
 # with a hardcoded 10s init timeout - too short for a CPU-starved build host.
 # Confirmed configurable via this exact env var in threads/dist/master/spawn.js.
 ENV THREADS_WORKER_INIT_TIMEOUT=120000
+# V8 sizes its default heap ceiling off physical RAM, which is far too
+# conservative on a 1GB host even with swap available - genuine OOM crashes
+# resulted (e.g. twenty-ui:build) without this. Applies to every Node
+# invocation in this stage, not just the final explicit frontend build.
+ENV NODE_OPTIONS=--max-old-space-size=3072
 
 COPY ./packages/twenty-emails /app/packages/twenty-emails
 COPY ./packages/twenty-shared /app/packages/twenty-shared
@@ -88,6 +93,11 @@ ENV NX_DAEMON=false
 # with a hardcoded 10s init timeout - too short for a CPU-starved build host.
 # Confirmed configurable via this exact env var in threads/dist/master/spawn.js.
 ENV THREADS_WORKER_INIT_TIMEOUT=120000
+# V8 sizes its default heap ceiling off physical RAM, which is far too
+# conservative on a 1GB host even with swap available - genuine OOM crashes
+# resulted (e.g. twenty-ui:build) without this. Applies to every Node
+# invocation in this stage, not just the final explicit frontend build.
+ENV NODE_OPTIONS=--max-old-space-size=3072
 
 COPY ./packages/twenty-front /app/packages/twenty-front
 COPY ./packages/twenty-front-component-renderer /app/packages/twenty-front-component-renderer
