@@ -43,6 +43,12 @@ FROM server-deps AS twenty-server-build
 # which constrained hosts (e.g. a 1 OCPU/1GB test VM) can legitimately exceed
 # without anything being wrong - this just lets it take as long as it needs.
 ENV NX_PLUGIN_NO_TIMEOUTS=true
+# The Nx daemon has its own separate timeout for responding to requests,
+# which the plugin-timeout override above doesn't cover. Disabling it
+# entirely (standard practice on CI/constrained hosts) makes Nx run
+# in-process instead of delegating to a background daemon that can itself
+# become a timeout source on slow hardware.
+ENV NX_DAEMON=false
 
 COPY ./packages/twenty-emails /app/packages/twenty-emails
 COPY ./packages/twenty-shared /app/packages/twenty-shared
@@ -68,6 +74,12 @@ FROM front-deps AS twenty-front-build
 
 # See the same ENV in twenty-server-build above for why this is needed.
 ENV NX_PLUGIN_NO_TIMEOUTS=true
+# The Nx daemon has its own separate timeout for responding to requests,
+# which the plugin-timeout override above doesn't cover. Disabling it
+# entirely (standard practice on CI/constrained hosts) makes Nx run
+# in-process instead of delegating to a background daemon that can itself
+# become a timeout source on slow hardware.
+ENV NX_DAEMON=false
 
 COPY ./packages/twenty-front /app/packages/twenty-front
 COPY ./packages/twenty-front-component-renderer /app/packages/twenty-front-component-renderer
