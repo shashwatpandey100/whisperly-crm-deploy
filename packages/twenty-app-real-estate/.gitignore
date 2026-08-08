@@ -1,0 +1,5 @@
+/node_modules
+/dist
+.twenty
+*.tsbuildinfo
+.DS_Store

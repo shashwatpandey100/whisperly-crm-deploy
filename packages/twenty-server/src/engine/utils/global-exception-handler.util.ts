@@ -1,0 +1,170 @@
+import { HttpException } from '@nestjs/common';
+
+import { GraphQLError } from 'graphql';
+
+import { type ExceptionHandlerUser } from 'src/engine/core-modules/exception-handler/interfaces/exception-handler-user.interface';
+import { type ExceptionHandlerWorkspace } from 'src/engine/core-modules/exception-handler/interfaces/exception-handler-workspace.interface';
+
+import { type ExceptionHandlerService } from 'src/engine/core-modules/exception-handler/exception-handler.service';
+import {
+  AuthenticationError,
+  BaseGraphQLError,
+  ConflictError,
+  ErrorCode,
+  ForbiddenError,
+  MethodNotAllowedError,
+  NotFoundError,
+  TimeoutError,
+  ValidationError,
+} from 'src/engine/core-modules/graphql/utils/graphql-errors.util';
+import { CustomException } from 'src/utils/custom-exception';
+import { isDefined } from 'twenty-shared/utils';
+
+const graphQLPredefinedExceptions = {
+  400: ValidationError,
+  401: AuthenticationError,
+  403: ForbiddenError,
+  404: NotFoundError,
+  405: MethodNotAllowedError,
+  408: TimeoutError,
+  409: ConflictError,
+};
+
+export const graphQLErrorCodesToFilter = [
+  ErrorCode.GRAPHQL_VALIDATION_FAILED,
+  ErrorCode.UNAUTHENTICATED,
+  ErrorCode.FORBIDDEN,
+  ErrorCode.NOT_FOUND,
+  ErrorCode.METHOD_NOT_ALLOWED,
+  ErrorCode.TIMEOUT,
+  ErrorCode.CONFLICT,
+  ErrorCode.BAD_USER_INPUT,
+  ErrorCode.METADATA_VALIDATION_FAILED,
+];
+
+export const handleExceptionAndConvertToGraphQLError = (
+  exception: Error,
+  exceptionHandlerService: ExceptionHandlerService,
+  user?: ExceptionHandlerUser,
+  workspace?: ExceptionHandlerWorkspace,
+): BaseGraphQLError => {
+  handleException({
+    exception,
+    exceptionHandlerService,
+    user,
+    workspace,
+  });
+
+  return convertExceptionToGraphQLError(exception);
+};
+
+export const shouldCaptureException = (
+  exception: Error,
+  statusCode?: number,
+): boolean => {
+  if (
+    exception instanceof CustomException &&
+    isDefined(exception.statusCode) &&
+    exception.statusCode < 500
+  ) {
+    return false;
+  }
+
+  if (
+    exception instanceof GraphQLError &&
+    (exception?.extensions?.http?.status ?? 500) < 500
+  ) {
+    return false;
+  }
+
+  if (
+    exception instanceof BaseGraphQLError &&
+    graphQLErrorCodesToFilter.includes(exception?.extensions?.code)
+  ) {
+    return false;
+  }
+
+  if (exception instanceof HttpException && exception.getStatus() < 500) {
+    return false;
+  }
+
+  if (statusCode && statusCode < 500) {
+    return false;
+  }
+
+  return true;
+};
+
+export const handleException = <
+  T extends Error | CustomException | HttpException,
+>({
+  exception,
+  exceptionHandlerService,
+  user,
+  workspace,
+  statusCode,
+  shouldBeCapturedBySentry = true,
+}: {
+  exception: T;
+  exceptionHandlerService: ExceptionHandlerService;
+  user?: ExceptionHandlerUser;
+  workspace?: ExceptionHandlerWorkspace;
+  statusCode?: number;
+  shouldBeCapturedBySentry?: boolean;
+}): T => {
+  if (
+    shouldBeCapturedBySentry &&
+    shouldCaptureException(exception, statusCode)
+  ) {
+    exceptionHandlerService.captureExceptions([exception], { user, workspace });
+  }
+
+  return exception;
+};
+
+export const convertExceptionToGraphQLError = (
+  exception: Error,
+): BaseGraphQLError => {
+  if (exception instanceof HttpException) {
+    return convertHttpExceptionToGraphql(exception);
+  }
+  if (exception instanceof BaseGraphQLError) {
+    return exception;
+  }
+
+  return convertExceptionToGraphql();
+};
+
+const convertHttpExceptionToGraphql = (exception: HttpException) => {
+  const status = exception.getStatus();
+  let error: BaseGraphQLError;
+
+  if (status in graphQLPredefinedExceptions) {
+    // @ts-expect-error legacy noImplicitAny
+    const message = exception.getResponse()['message'] ?? exception.message;
+
+    // @ts-expect-error legacy noImplicitAny
+    error = new graphQLPredefinedExceptions[exception.getStatus()](message);
+  } else {
+    error = new BaseGraphQLError(
+      'Internal Server Error',
+      exception.getStatus().toString(),
+    );
+  }
+
+  // Stack traces and internal exception details never go in the API
+  // response, in any environment - this is exposure hardening, not an
+  // Enterprise/licensing feature. Full details are still available server-side
+  // via the exception handler service (Sentry/logs).
+
+  return error;
+};
+
+export const convertExceptionToGraphql = () => {
+  const error = new BaseGraphQLError(
+    'Internal Server Error',
+    ErrorCode.INTERNAL_SERVER_ERROR,
+  );
+
+  return error;
+};
