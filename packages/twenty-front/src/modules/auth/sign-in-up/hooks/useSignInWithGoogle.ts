@@ -3,6 +3,8 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/auth/hooks/useAuth';
 import { type BillingCheckoutSession } from '@/auth/types/billingCheckoutSession.type';
 import { type SocialSSOSignInUpActionType } from '@/auth/types/socialSSOSignInUp.type';
+import { billingState } from '@/client-config/states/billingState';
+import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
 import {
   BillingPlanKey,
   SubscriptionInterval,
@@ -13,11 +15,20 @@ export const useSignInWithGoogle = () => {
   const [searchParams] = useSearchParams();
   const workspacePersonalInviteToken =
     searchParams.get('inviteToken') ?? undefined;
-  const billingCheckoutSession = {
-    plan: BillingPlanKey.PRO,
-    interval: SubscriptionInterval.Month,
-    requirePaymentMethod: true,
-  } as BillingCheckoutSession;
+  const billing = useAtomStateValue(billingState);
+  // Only self-hosted instances with billing genuinely enabled should ever
+  // route through a plan/payment-method step - otherwise this unconditionally
+  // required a PRO plan checkout for every Google sign-in, including plain
+  // joins to an existing workspace, which loops forever since there's no
+  // billing flow to actually complete.
+  const billingCheckoutSession: BillingCheckoutSession | undefined =
+    billing?.isBillingEnabled
+      ? {
+          plan: BillingPlanKey.PRO,
+          interval: SubscriptionInterval.Month,
+          requirePaymentMethod: true,
+        }
+      : undefined;
 
   const { signInWithGoogle } = useAuth();
 
